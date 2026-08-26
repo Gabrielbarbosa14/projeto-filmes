@@ -1,33 +1,52 @@
 import tabelafilmes from "./tabela.js";
 import express from "express";
 
-//PORTA DA APLICAÇÃO
+// PORTA DA APLICAÇÃO
 const PORTA = 3000;
-//INICIALIZAR A APLICAÇÃO EXPRESS
+
+// INICIALIZAR A APLICAÇÃO EXPRESS
 const app = express();
 
+// PERMITE RECEBER JSON NO BODY DAS REQUISIÇÕES
+app.use(express.json());
+
+// FUNÇÃO PARA CARREGAR OS FILMES
 function carregar_filmes() {
-  //delete require.cache[require.resolve("./tabela")];
   return tabelafilmes;
 }
-//app.use(express.json());
 
-//ROTA RAIZ (GET /) RETORNAR MENSAGEM DE BOAS VINDAS
+// ======================================================
+// ROTA RAIZ
+// GET /
+// ======================================================
+
 app.get("/", (req, res) => {
   res.json({
     mensagem: "API FUNCIONANDO",
     rotas: {
       listar: "GET /filmes",
-      buscarPorId: "GET /filmes/:id",
-      buscaPorDiretor: "GET /filmes/diretor/:diretor",
+      buscarPorId: "GET /filmes/id/:id",
+      buscarPorSigla: "GET /filmes/:sigla",
+      buscarPorGenero: "GET /filmes/genero/:genero",
+      adicionar: "POST /filmes",
+      deletar: "DELETE /filmes/:id",
     },
   });
 });
 
-//MOSTRA OS FILMES da tabela.js
+// ======================================================
+// LISTAR TODOS OS FILMES
+// GET /filmes
+// ======================================================
+
 app.get("/filmes", (req, res) => {
   res.json(tabelafilmes);
 });
+
+// ======================================================
+// BUSCAR FILME PELO ID
+// GET /filmes/id/:id
+// ======================================================
 
 app.get("/filmes/id/:id", (req, res) => {
   const filmes = carregar_filmes();
@@ -38,66 +57,128 @@ app.get("/filmes/id/:id", (req, res) => {
 
   if (!filme) {
     return res.status(404).json({
-      erro: "filme não encontrado",
+      erro: "Filme não encontrado",
     });
   }
 
   res.json(filme);
 });
 
-//MOSTRA OS FILMES COM BASE NA SIGLA
+// ======================================================
+// BUSCAR FILME PELA SIGLA
+// GET /filmes/:sigla
+// ======================================================
+
 app.get("/filmes/:sigla", (req, res) => {
-  //PEGA A SIGLA DIGITA NA URL E TRANSFORMA EM LETRAS MAIUSCULAS
+  // Pega a sigla digitada na URL
+  // e transforma em letras maiúsculas
   const sigla_buscar = req.params.sigla.toUpperCase();
 
-  //COMPARA A SIGLA DA URL COM A SIGLA DA TABELA
-  const sigla = tabelafilmes.find(
+  // Procura a sigla na tabela
+  const filme = tabelafilmes.find(
     (filme) => filme.sigla.toUpperCase() === sigla_buscar,
   );
 
-  if (!sigla) {
-    return res.status(404).json({ erro: "filme não encontrado" });
-  }
-
-  res.json(sigla);
-});
-
-app.get("/filmes/genero/:genero", (req, res) => {
-  const genero_buscar = req.params.genero.toUpperCase();
-
-  const genero = tabelafilmes.find(
-    (filme) => filme.genero.toUpperCase() === genero_buscar,
-  );
-
-  if (!genero.length === 0) {
-    return res.status(404).json({ erro: "filme não encontrado" });
-  }
-  res.json(genero);
-});
-
-// MOSTRA OS FILMES COM BASE NO DIRETOR
-
-app.get("/filmes/diretor/:diretor", (req, res) => {
-  // PEGA O DIRETOR DIGITADO NA URL E TRANSFORMA EM LETRAS MAIÚSCULAS
-  const diretor_buscar = req.params.diretor.toUpperCase();
-
-  // PROCURA TODOS OS FILMES QUE POSSUEM O DIRETOR INFORMADO
-  const diretor = tabelafilmes.filter(
-    (filme) => filme.diretor.toUpperCase() === diretor_buscar,
-  );
-
-  // SE NÃO ENCONTRAR NENHUM FILME
-  if (diretor.length === 0) {
+  if (!filme) {
     return res.status(404).json({
-      erro: "filme não encontrado",
+      erro: "Filme não encontrado",
     });
   }
 
-  // RETORNA TODOS OS FILMES ENCONTRADOS
-  res.json(diretor);
+  res.json(filme);
 });
 
-//INICIALIZA O SERVIDOR HTTP ESCUTANDO NA PORTA CONFIGURADA
+// ======================================================
+// BUSCAR FILMES PELO GÊNERO
+// GET /filmes/genero/:genero
+// ======================================================
+
+app.get("/filmes/genero/:genero", (req, res) => {
+  // Pega o gênero digitado na URL
+  // e transforma em letras maiúsculas
+  const genero_buscar = req.params.genero.toUpperCase();
+
+  // FILTER é utilizado porque podemos ter
+  // vários filmes do mesmo gênero
+  const filmes = tabelafilmes.filter(
+    (filme) => filme.genero.toUpperCase() === genero_buscar,
+  );
+
+  if (filmes.length === 0) {
+    return res.status(404).json({
+      erro: "Nenhum filme encontrado para esse gênero",
+    });
+  }
+
+  res.json(filmes);
+});
+
+// ======================================================
+// ADICIONAR NOVO FILME
+// POST /filmes
+// ======================================================
+
+app.post("/filmes", (req, res) => {
+  const novoFilme = req.body;
+
+  // Verifica se o ID foi informado
+  if (novoFilme.id === undefined) {
+    return res.status(400).json({
+      erro: "O ID do filme é obrigatório",
+    });
+  }
+
+  // Verifica se o ID já existe
+  const filmeExistente = tabelafilmes.find(
+    (filme) => filme.id === Number(novoFilme.id),
+  );
+
+  if (filmeExistente) {
+    return res.status(400).json({
+      erro: "Já existe um filme com esse ID",
+    });
+  }
+
+  // Adiciona o filme na tabela
+  tabelafilmes.push(novoFilme);
+
+  res.status(201).json({
+    mensagem: "Filme adicionado com sucesso",
+    filme: novoFilme,
+  });
+});
+
+// ======================================================
+// DELETAR FILME PELO ID
+// DELETE /filmes/:id
+// ======================================================
+
+app.delete("/filmes/:id", (req, res) => {
+  const id = Number(req.params.id);
+
+  // Procura a posição do filme no array
+  const indice = tabelafilmes.findIndex((filme) => filme.id === id);
+
+  // Se não encontrar
+  if (indice === -1) {
+    return res.status(404).json({
+      erro: "Filme não encontrado",
+    });
+  }
+
+  // Remove o filme do array
+  const filmeRemovido = tabelafilmes.splice(indice, 1);
+
+  res.json({
+    mensagem: "Filme deletado com sucesso",
+    filme: filmeRemovido[0],
+  });
+});
+
+// ======================================================
+// INICIALIZAÇÃO DO SERVIDOR
+// ======================================================
+
 app.listen(PORTA, () => {
   console.log(`Servidor rodando em http://localhost:${PORTA}`);
 });
